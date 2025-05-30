@@ -19,9 +19,6 @@
     .card h5, .card p {
       color: white;
     }
-    #update-btn {
-      margin-top: 30px;
-    }
     canvas {
       background-color: white;
       border-radius: 8px;
@@ -40,19 +37,25 @@
     .info-box .percent {
       font-weight: bold;
     }
+    #countdown {
+      position: fixed;
+      bottom: 10px;
+      right: 15px;
+      background: #2e2e42;
+      padding: 10px 15px;
+      border-radius: 10px;
+      color: #fff;
+      font-size: 14px;
+      z-index: 1000;
+    }
   </style>
 </head>
 <body>
   <div class="container py-5">
     <h1 class="text-center mb-4">Monitor de Criptomoedas</h1>
 
-    <div class="d-flex justify-content-center">
-      <button id="update-btn" class="btn btn-primary">Atualizar agora</button>
-    </div>
-
     <div class="row g-4 mt-4">
-      <!-- Repetir estrutura para Bitcoin, Ethereum e Solana -->
-      <!-- Exemplo: Bitcoin -->
+      <!-- Bitcoin -->
       <div class="col-md-4">
         <div class="card text-center">
           <div class="card-body">
@@ -108,7 +111,7 @@
     </div>
   </div>
 
-  <!-- Modal com info e gráfico -->
+  <!-- Modal -->
   <div class="modal fade" id="chartModal" tabindex="-1" aria-labelledby="chartModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
       <div class="modal-content bg-dark text-light">
@@ -117,13 +120,16 @@
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
         </div>
         <div class="modal-body">
-          <div class="info-box" id="modalInfo">
-            <!-- Info dinâmica aqui -->
-          </div>
+          <div class="info-box" id="modalInfo"></div>
           <canvas id="modalChartCanvas" height="300"></canvas>
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- Contador -->
+  <div id="countdown">
+    Atualização em: <span id="timer">05:00</span>
   </div>
 
   <script>
@@ -151,7 +157,6 @@
           const priceUSD = usdData[id].usd;
           const percent7d = coin.price_change_percentage_7d_in_currency;
 
-          // Salva para usar no modal
           pricesInfo[id] = {
             brl: priceBRL,
             usd: priceUSD,
@@ -160,6 +165,7 @@
 
           document.getElementById(`${id}-brl`).textContent = `R$ ${priceBRL.toLocaleString('pt-BR')}`;
           document.getElementById(`${id}-usd`).textContent = `US$ ${priceUSD.toLocaleString('en-US')}`;
+
           const pctText = percent7d.toFixed(2).replace('.', ',') + '%';
           const changeElem = document.getElementById(`${id}-change`);
           changeElem.textContent = `Variação semanal: ${pctText}`;
@@ -201,7 +207,7 @@
           },
           options: {
             plugins: {
-              legend: { labels: { color: '#fff' } },
+              legend: { labels: { color: '#000000' } },
               title: {
                 display: true,
                 text: `Variação semanal - ${cryptoId.toUpperCase()}`,
@@ -231,7 +237,6 @@
     }
 
     async function openChartModal(cryptoId) {
-      // Atualiza dados no topo do modal
       const info = pricesInfo[cryptoId];
       const modalInfo = document.getElementById("modalInfo");
       const percentText = info.change.toFixed(2).replace('.', ',') + '%';
@@ -243,12 +248,10 @@
         <div class="percent" style="color: ${percentColor}"><strong>7 dias</strong><br>${percentText}</div>
       `;
 
-      // Desenha o gráfico
       const ctx = document.getElementById("modalChartCanvas").getContext("2d");
       if (modalChart) modalChart.destroy();
 
-      const url = `https://api.coingecko.com/api/v3/coins/${cryptoId}/market_chart?vs_currency=brl&days=7`;
-      const res = await fetch(url);
+      const res = await fetch(`https://api.coingecko.com/api/v3/coins/${cryptoId}/market_chart?vs_currency=brl&days=7`);
       const data = await res.json();
 
       const prices = data.prices.map(p => p[1]);
@@ -269,13 +272,18 @@
             fill: true,
             tension: 0.4,
             pointRadius: 3,
-            pointBackgroundColor: '#000000',
+            pointBackgroundColor: '#fff',
             pointBorderColor: '#4bc0c0'
           }]
         },
         options: {
           plugins: {
-            legend: { labels: { color: '#000000' } }
+            legend: { labels: { color: '#000000' } },
+            title: {
+              display: true,
+              text: `Gráfico ampliado - ${cryptoId.toUpperCase()}`,
+              color: '#000000'
+            }
           },
           scales: {
             x: { ticks: { color: '#000000' } },
@@ -292,17 +300,26 @@
       cryptos.forEach(c => fetchChartData(c, `chart-${c}`));
     }
 
-    document.getElementById("update-btn").addEventListener("click", () => {
-      fetchPrices();
-      updateAllCharts();
-    });
+    function startCountdown() {
+      let countdown = 300;
+      const timerElement = document.getElementById("timer");
+
+      setInterval(() => {
+        countdown--;
+        if (countdown <= 0) {
+          countdown = 300;
+          fetchPrices();
+          updateAllCharts();
+        }
+        const min = String(Math.floor(countdown / 60)).padStart(2, '0');
+        const sec = String(countdown % 60).padStart(2, '0');
+        timerElement.textContent = `${min}:${sec}`;
+      }, 1000);
+    }
 
     fetchPrices();
     updateAllCharts();
-    setInterval(() => {
-      fetchPrices();
-      updateAllCharts();
-    }, 30000);
+    startCountdown();
   </script>
 </body>
 </html>
