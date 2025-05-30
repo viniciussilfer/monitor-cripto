@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Monitor Cripto</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <style>
+    body {
+      background-color: #1e1e2f;
+      color: white;
+    }
+    .card {
+      background-color: #2e2e42;
+      border: none;
+    }
+    .card h5, .card p {
+      color: white;
+    }
+    #update-btn {
+      margin-top: 30px;
+    }
+    canvas {
+      background-color: white;
+      border-radius: 8px;
+    }
+    .info-box {
+      display: flex;
+      justify-content: space-around;
+      flex-wrap: wrap;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+    .info-box div {
+      text-align: center;
+      min-width: 100px;
+    }
+    .info-box .percent {
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="container py-5">
+    <h1 class="text-center mb-4">Monitor de Criptomoedas</h1>
+
+    <div class="d-flex justify-content-center">
+      <button id="update-btn" class="btn btn-primary">Atualizar agora</button>
+    </div>
+
+    <div class="row g-4 mt-4">
+      <!-- Repetir estrutura para Bitcoin, Ethereum e Solana -->
+      <!-- Exemplo: Bitcoin -->
+      <div class="col-md-4">
+        <div class="card text-center">
+          <div class="card-body">
+            <h5 class="card-title">Bitcoin (BTC)</h5>
+            <p class="card-text" id="bitcoin-brl">R$ Carregando...</p>
+            <p class="card-text" id="bitcoin-usd">US$ Carregando...</p>
+            <p class="card-text" id="bitcoin-change">Variação semanal: ...</p>
+          </div>
+        </div>
+        <div class="card mt-2">
+          <div class="card-body">
+            <canvas id="chart-bitcoin" height="150"></canvas>
+            <button class="btn btn-outline-light btn-sm mt-2" onclick="openChartModal('bitcoin')">Ver maior</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Ethereum -->
+      <div class="col-md-4">
+        <div class="card text-center">
+          <div class="card-body">
+            <h5 class="card-title">Ethereum (ETH)</h5>
+            <p class="card-text" id="ethereum-brl">R$ Carregando...</p>
+            <p class="card-text" id="ethereum-usd">US$ Carregando...</p>
+            <p class="card-text" id="ethereum-change">Variação semanal: ...</p>
+          </div>
+        </div>
+        <div class="card mt-2">
+          <div class="card-body">
+            <canvas id="chart-ethereum" height="150"></canvas>
+            <button class="btn btn-outline-light btn-sm mt-2" onclick="openChartModal('ethereum')">Ver maior</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Solana -->
+      <div class="col-md-4">
+        <div class="card text-center">
+          <div class="card-body">
+            <h5 class="card-title">Solana (SOL)</h5>
+            <p class="card-text" id="solana-brl">R$ Carregando...</p>
+            <p class="card-text" id="solana-usd">US$ Carregando...</p>
+            <p class="card-text" id="solana-change">Variação semanal: ...</p>
+          </div>
+        </div>
+        <div class="card mt-2">
+          <div class="card-body">
+            <canvas id="chart-solana" height="150"></canvas>
+            <button class="btn btn-outline-light btn-sm mt-2" onclick="openChartModal('solana')">Ver maior</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal com info e gráfico -->
+  <div class="modal fade" id="chartModal" tabindex="-1" aria-labelledby="chartModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+      <div class="modal-content bg-dark text-light">
+        <div class="modal-header">
+          <h5 class="modal-title" id="chartModalLabel">Gráfico Ampliado</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+        </div>
+        <div class="modal-body">
+          <div class="info-box" id="modalInfo">
+            <!-- Info dinâmica aqui -->
+          </div>
+          <canvas id="modalChartCanvas" height="300"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const cryptos = ['bitcoin', 'ethereum', 'solana'];
+    const charts = {};
+    let modalChart;
+    let pricesInfo = {};
+
+    async function fetchPrices() {
+      const brlUrl = 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=brl&ids=bitcoin,ethereum,solana&price_change_percentage=7d';
+      const usdUrl = 'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana&vs_currencies=usd';
+
+      try {
+        const [brlRes, usdRes] = await Promise.all([
+          fetch(brlUrl),
+          fetch(usdUrl)
+        ]);
+
+        const brlData = await brlRes.json();
+        const usdData = await usdRes.json();
+
+        brlData.forEach(coin => {
+          const id = coin.id;
+          const priceBRL = coin.current_price;
+          const priceUSD = usdData[id].usd;
+          const percent7d = coin.price_change_percentage_7d_in_currency;
+
+          // Salva para usar no modal
+          pricesInfo[id] = {
+            brl: priceBRL,
+            usd: priceUSD,
+            change: percent7d
+          };
+
+          document.getElementById(`${id}-brl`).textContent = `R$ ${priceBRL.toLocaleString('pt-BR')}`;
+          document.getElementById(`${id}-usd`).textContent = `US$ ${priceUSD.toLocaleString('en-US')}`;
+          const pctText = percent7d.toFixed(2).replace('.', ',') + '%';
+          const changeElem = document.getElementById(`${id}-change`);
+          changeElem.textContent = `Variação semanal: ${pctText}`;
+          changeElem.style.color = percent7d >= 0 ? '#00ff90' : '#ff6666';
+        });
+
+      } catch (err) {
+        console.error('Erro ao buscar preços:', err);
+      }
+    }
+
+    async function fetchChartData(cryptoId, chartId) {
+      const url = `https://api.coingecko.com/api/v3/coins/${cryptoId}/market_chart?vs_currency=brl&days=7`;
+      try {
+        const response = await fetch(url);
+        const data = await response.json();
+
+        const prices = data.prices.map(p => p[1]);
+        const labels = data.prices.map(p => {
+          const date = new Date(p[0]);
+          return `${date.getDate()}/${date.getMonth() + 1}`;
+        });
+
+        const config = {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: 'Preço (R$)',
+              data: prices,
+              borderColor: '#4bc0c0',
+              backgroundColor: 'rgba(75, 192, 192, 0.2)',
+              fill: true,
+              tension: 0.4,
+              pointRadius: 3,
+              pointBackgroundColor: '#fff',
+              pointBorderColor: '#4bc0c0'
+            }]
+          },
+          options: {
+            plugins: {
+              legend: { labels: { color: '#fff' } },
+              title: {
+                display: true,
+                text: `Variação semanal - ${cryptoId.toUpperCase()}`,
+                color: '#000000',
+                font: { size: 14 },
+                padding: { top: 10, bottom: 10 }
+              }
+            },
+            scales: {
+              x: { ticks: { color: '#000000' } },
+              y: { ticks: { color: '#000000' } }
+            }
+          }
+        };
+
+        if (charts[cryptoId]) {
+          charts[cryptoId].data = config.data;
+          charts[cryptoId].options = config.options;
+          charts[cryptoId].update();
+        } else {
+          charts[cryptoId] = new Chart(document.getElementById(chartId), config);
+        }
+
+      } catch (err) {
+        console.error(`Erro no gráfico ${cryptoId}:`, err);
+      }
+    }
+
+    async function openChartModal(cryptoId) {
+      // Atualiza dados no topo do modal
+      const info = pricesInfo[cryptoId];
+      const modalInfo = document.getElementById("modalInfo");
+      const percentText = info.change.toFixed(2).replace('.', ',') + '%';
+      const percentColor = info.change >= 0 ? '#00ff90' : '#ff6666';
+
+      modalInfo.innerHTML = `
+        <div><strong>R$</strong><br>${info.brl.toLocaleString('pt-BR')}</div>
+        <div><strong>US$</strong><br>${info.usd.toLocaleString('en-US')}</div>
+        <div class="percent" style="color: ${percentColor}"><strong>7 dias</strong><br>${percentText}</div>
+      `;
+
+      // Desenha o gráfico
+      const ctx = document.getElementById("modalChartCanvas").getContext("2d");
+      if (modalChart) modalChart.destroy();
+
+      const url = `https://api.coingecko.com/api/v3/coins/${cryptoId}/market_chart?vs_currency=brl&days=7`;
+      const res = await fetch(url);
+      const data = await res.json();
+
+      const prices = data.prices.map(p => p[1]);
+      const labels = data.prices.map(p => {
+        const d = new Date(p[0]);
+        return `${d.getDate()}/${d.getMonth() + 1}`;
+      });
+
+      modalChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: `Preço (R$) - ${cryptoId.toUpperCase()}`,
+            data: prices,
+            borderColor: '#4bc0c0',
+            backgroundColor: 'rgba(75,192,192,0.2)',
+            fill: true,
+            tension: 0.4,
+            pointRadius: 3,
+            pointBackgroundColor: '#000000',
+            pointBorderColor: '#4bc0c0'
+          }]
+        },
+        options: {
+          plugins: {
+            legend: { labels: { color: '#000000' } }
+          },
+          scales: {
+            x: { ticks: { color: '#000000' } },
+            y: { ticks: { color: '#000000' } }
+          }
+        }
+      });
+
+      const modal = new bootstrap.Modal(document.getElementById('chartModal'));
+      modal.show();
+    }
+
+    function updateAllCharts() {
+      cryptos.forEach(c => fetchChartData(c, `chart-${c}`));
+    }
+
+    document.getElementById("update-btn").addEventListener("click", () => {
+      fetchPrices();
+      updateAllCharts();
+    });
+
+    fetchPrices();
+    updateAllCharts();
+    setInterval(() => {
+      fetchPrices();
+      updateAllCharts();
+    }, 30000);
+  </script>
+</body>
+</html>
